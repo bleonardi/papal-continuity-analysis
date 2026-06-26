@@ -1,0 +1,11 @@
+requests
+beautifulsoup4
+lxml
+pandas
+numpy
+scikit-learn
+statsmodels
+matplotlib
+seaborn
+bertopic
+sentence-transformers

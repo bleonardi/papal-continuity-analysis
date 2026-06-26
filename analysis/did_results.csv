@@ -1,0 +1,12 @@
+treatment,control,outcome,cutoff,n,did_coef,did_se,did_p,r2
+catholic,lds,fk_grade,1965,727,-3.1714,0.7669,0.0,0.4286
+catholic,lds,flesch_ease,1965,727,5.1797,2.5046,0.0386,0.513
+catholic,lds,type_token_ratio,1965,727,-0.3028,0.0272,0.0,0.5812
+catholic,lds,avg_sentence_length,1965,727,-9.8634,1.8913,0.0,0.2753
+catholic,lds,hedge_rate,1965,727,-0.0019,0.0007,0.0054,0.0233
+catholic,lds,fp_plural_rate,1965,727,-0.0059,0.0026,0.0215,0.0234
+catholic,lds,theol_juridical_rate,1965,727,0.0007,0.0007,0.3567,0.1546
+catholic,lds,theol_pastoral_rate,1965,727,0.0005,0.0006,0.4196,0.2571
+catholic,lds,theol_ecumenical_rate,1965,727,-0.0007,0.0009,0.4877,0.2127
+catholic,lds,theol_modern_world_rate,1965,727,0.0014,0.0009,0.1231,0.0571
+catholic,lds,cosine_sim_to_prev,1965,725,0.7534,0.0351,0.0,0.7925

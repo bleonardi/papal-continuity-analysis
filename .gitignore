@@ -1,0 +1,12 @@
+# Raw corpus text files — too large for GitHub
+data/raw/
+
+# Quarto intermediates
+*.quarto_ipynb
+.quarto/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+data/*.html

@@ -1,0 +1,359 @@
+---
+title: "Continuity or Rupture? A Text-as-Data Analysis of Vatican II and Comparative Doctrinal Change"
+author: "Benedict Leonardi"
+date: today
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from pathlib import Path
+from IPython.display import display
+
+FEATURES = Path("data/corpus/features.csv")
+ITS      = Path("analysis/its_results.csv")
+DID      = Path("analysis/did_results_agg.csv")
+PLOTS    = Path("analysis")
+
+TRADITION_COLORS = {
+    "catholic": "#c0392b",
+    "lds":      "#2980b9",
+    "sbc":      "#27ae60",
+    "anglican": "#8e44ad",
+    "orthodox": "#e67e22",
+    "usccb":    "#16a085",
+}
+
+plt.rcParams.update({
+    "figure.dpi": 150,
+    "font.family": "sans-serif",
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "grid.linestyle": "--",
+})
+
+df   = pd.read_csv(FEATURES)
+its  = pd.read_csv(ITS)
+did  = pd.read_csv(DID)
+```
+
+## Abstract
+
+A dominant narrative in post-conciliar Catholic discourse holds that the Second Vatican Council (1962–1965) produced a fundamental rupture with prior tradition — a discontinuity in doctrine, style, and theological orientation. This paper tests that claim empirically using a large corpus of primary documents. Applying interrupted time series (ITS) and difference-in-differences (DiD) models to over 1,900 documents across five Christian traditions (Catholic encyclicals 1878–2024, LDS general conference reports 1880–1980, SBC resolutions 1845–2026, Anglican Lambeth conference statements 1867–1998, and Eastern Orthodox patriarchal documents 1902–2026), we find that Vatican II coincides with a significant stylistic simplification — shorter sentences, lower reading complexity — but no detectable discontinuity in theological vocabulary emphasis. More strikingly, Catholic documents become *more* textually consistent with each other after 1965, not less. The rupture narrative finds no support in the textual record.
+
+---
+
+**Keywords:** Vatican II, Hermeneutic of Continuity, Text-as-Data, Interrupted Time Series, Papal Encyclicals, Comparative Religion
+
+---
+
+## I. Introduction
+
+The question of whether the Second Vatican Council represents a break or a development within the Catholic tradition is among the most contested debates in contemporary Catholic intellectual life. Proponents of the "rupture" interpretation — associated with figures like Archbishop Marcel Lefebvre and, in a different register, some progressive theologians — argue that Vatican II produced a new Church, discontinuous in key respects with its predecessor. The "hermeneutic of continuity," articulated most prominently by Benedict XVI, holds instead that the council's documents, properly interpreted, represent organic development rather than rupture.
+
+This paper does not take a side in that theological dispute. Instead, it asks an antecedent empirical question: *what does the textual record actually show?* If Vatican II produced a rupture, we would expect to observe, in the documents themselves, a measurable discontinuity at 1965 — a shift in vocabulary, style, theological emphasis, or intertextual coherence that exceeds any pre-existing trend. If the continuity thesis is correct, such discontinuities should be modest or absent, and the corpus of post-conciliar encyclicals should remain recognizably connected to its predecessors.
+
+We further situate the Catholic case comparatively. Other Christian traditions underwent their own rupture events over the same period: the Anglican Communion's ordination debates (Lambeth 1976–1978), the Southern Baptist Conservative Resurgence (1979), and shifts in LDS institutional discourse. If Vatican II is unusually disruptive, Catholic documents should show larger discontinuities than peer traditions at their own rupture events.
+
+## II. Data
+
+### 2.1 Corpora
+
+```{python}
+summary = df.groupby("tradition").agg(
+    Documents=("file", "count"),
+    First_Year=("year", "min"),
+    Last_Year=("year", "max"),
+).reset_index()
+summary.columns = ["Tradition", "Documents", "First Year", "Last Year"]
+summary["Tradition"] = summary["Tradition"].str.title()
+display(summary.style.hide(axis="index"))
+```
+
+**Catholic** encyclicals were scraped from the Vatican's official website (vatican.va), supplemented with English translations from papalencyclicals.net for documents unavailable in English on the Vatican site. The corpus spans Leo XIII through Francis (1878–2024), covering 222 encyclicals across 13 pontificates.
+
+**LDS** general conference reports were sourced from the Internet Archive (pre-1971 session transcripts) and churchofjesuschrist.org (individual talks, 1971–1980). Documents were aggregated to the annual level (one document per year) to match the session-level granularity of the Catholic corpus.
+
+**SBC** resolutions were scraped from sbc.net, yielding 1,195 resolutions from 1845 to 2026.
+
+**Anglican** Lambeth Conference statements were extracted from PDFs at anglicancommunion.org, covering 13 decennial conferences from 1867 to 1998.
+
+**Orthodox** documents represent a curated set of 27 patriarchal encyclicals and major council statements (1902–2026) drawn from published translations of Ecumenical Patriarchate documents and ec-patr.org.
+
+### 2.2 Rupture Events
+
+| Tradition | Rupture Event | Year |
+|---|---|---|
+| Catholic | Vatican II closes | 1965 |
+| Anglican | Lambeth ordination debates | 1976 |
+| SBC | Conservative Resurgence begins | 1979 |
+| LDS | No strong rupture candidate | — |
+| Orthodox | Paul VI–Athenagoras declaration | 1965 |
+
+LDS serves as the primary control group in the DiD specification, as it exhibits no comparable institutional rupture event over the study period.
+
+## III. Methods
+
+### 3.1 Textual Features
+
+For each document we compute:
+
+- **Readability:** Flesch-Kincaid grade level, Flesch reading ease, average sentence length
+- **Lexical diversity:** Type-token ratio (TTR)
+- **Register:** Hedging word rate, first-person plural rate
+- **Theological vocabulary:** Rate of terms per 1,000 words in four clusters — *juridical* (canon, decree, obedience, authority...), *pastoral* (shepherd, mercy, compassion, encounter...), *ecumenical* (unity, dialogue, reconciliation...), *modern world* (contemporary, human dignity, rights, progress...)
+- **Intertextual continuity:** Cosine similarity between a document's TF-IDF vector and that of its chronological predecessor within the same tradition
+
+### 3.2 Interrupted Time Series
+
+For each tradition and outcome, we estimate:
+
+$$Y_t = \beta_0 + \beta_1 \cdot \text{time}_t + \beta_2 \cdot \text{post}_t + \beta_3 \cdot (\text{time}_t \times \text{post}_t) + \varepsilon_t$$
+
+where $\text{post}_t = \mathbf{1}[t \geq \text{cutoff}]$ and $\text{time}_t$ is years centered at the cutoff. $\beta_2$ estimates the **level change** at the rupture event; $\beta_3$ the **slope change**. All models use HC3 heteroskedasticity-robust standard errors.
+
+### 3.3 Difference-in-Differences
+
+To partial out secular trends common to all traditions (general prose simplification over the 20th century), we estimate a DiD using Catholic as treatment and annual-aggregated LDS as control:
+
+$$Y_{it} = \alpha + \gamma \cdot \text{treated}_i + \delta \cdot \text{post}_t + \tau \cdot (\text{treated}_i \times \text{post}_t) + \lambda \cdot \text{time}_t + \mu \cdot (\text{time}_t \times \text{treated}_i) + \varepsilon_{it}$$
+
+$\tau$ is the DiD estimator — the Catholic-specific change at 1965 net of any LDS trend. HC3 robust SEs throughout.
+
+### 3.4 On Regression Discontinuity
+
+RD estimation at the 1965 cutoff was considered but not adopted as a primary specification. RD requires that units cannot precisely manipulate their position around the running-variable threshold. Papal documents, however, are strategically timed — Paul VI demonstrably delayed issuing *Humanae Vitae* until after the council closed, and several encyclicals were explicitly framed as council implementations. This creates plausible sorting around the 1965 threshold that violates the RD continuity assumption. The ITS specification is more appropriate for a long institutional series and subsumes the RD identifying variation.
+
+## IV. Results
+
+### 4.1 Stylistic Change at Vatican II
+
+The ITS estimates confirm a significant level change in surface stylistic features at 1965:
+
+```{python}
+its_cat = its[
+    (its.tradition == "catholic") &
+    (its.cutoff == 1965) &
+    its.level_change.notna()
+][["outcome", "n", "level_change", "level_change_se", "level_change_p", "slope_change", "slope_change_p"]].copy()
+
+its_cat["sig"] = its_cat.level_change_p.apply(
+    lambda p: "**" if p < 0.05 else ("†" if p < 0.1 else "")
+)
+its_cat["outcome"] = its_cat.outcome.str.replace("_", " ").str.title()
+its_cat.columns = ["Outcome", "N", "Level Δ", "SE", "p", "Slope Δ (p)", "Slope p", ""]
+its_cat = its_cat[["Outcome", "N", "Level Δ", "SE", "p", ""]].round(4)
+display(its_cat.style.hide(axis="index"))
+```
+
+Sentence length drops by 5.6 words at 1965 (p = 0.009), Flesch-Kincaid grade falls by 2.1 points (p = 0.014), and first-person plural usage declines (p = 0.047). None of the four theological vocabulary clusters show significant level changes. The pastoral, ecumenical, juridical, and modern-world term rates are statistically flat across the 1965 boundary.
+
+Most striking is the cosine similarity result: documents become *more* similar to their predecessors after Vatican II (level Δ = +0.095, p = 0.015). The rupture narrative would predict the opposite.
+
+```{python}
+#| label: fig-cosine-catholic
+#| fig-cap: "Catholic encyclicals show *increased* intertextual continuity after Vatican II. Rolling mean (5 documents) overlaid on raw values. Dashed line = 1965."
+
+fig, ax = plt.subplots(figsize=(10, 4.5))
+cat = df[df.tradition == "catholic"].sort_values("year")
+sim = cat[cat.cosine_sim_to_prev.notna()]
+
+ax.scatter(sim.year, sim.cosine_sim_to_prev, s=18, alpha=0.45, color="#c0392b")
+roll = sim.set_index("year")["cosine_sim_to_prev"].rolling(5, center=True, min_periods=2)
+ax.plot(sim.year, roll.mean().values, lw=2.5, color="#c0392b", label="5-doc rolling mean")
+ax.axvline(1965, color="#999", lw=1.5, ls="--", alpha=0.8)
+ax.text(1966, 0.93, "Vatican II (1965)", fontsize=8, color="#999")
+ax.set_ylim(0, 1)
+ax.set_xlabel("Year")
+ax.set_ylabel("Cosine Similarity to Previous Encyclical")
+ax.legend(fontsize=9)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-sentence-length
+#| fig-cap: "Average sentence length in Catholic encyclicals falls at Vatican II. Pre- and post-1965 OLS trend lines shown."
+
+fig, ax = plt.subplots(figsize=(10, 4.5))
+cat_s = df[(df.tradition == "catholic") & df.avg_sentence_length.notna()].sort_values("year")
+ax.scatter(cat_s.year, cat_s.avg_sentence_length, s=16, alpha=0.45, color="#c0392b")
+for mask, ls in [(cat_s.year < 1965, "-"), (cat_s.year >= 1965, "--")]:
+    sub = cat_s[mask]
+    coef = np.polyfit(sub.year, sub.avg_sentence_length, 1)
+    xr = np.linspace(sub.year.min(), sub.year.max(), 100)
+    ax.plot(xr, np.polyval(coef, xr), lw=2.5, color="#c0392b", ls=ls,
+            label="Pre-Vatican II" if ls == "-" else "Post-Vatican II")
+ax.axvline(1965, color="#999", lw=1.5, ls="--", alpha=0.8)
+ax.text(1966, ax.get_ylim()[1] * 0.96, "Vatican II (1965)", fontsize=8, color="#999")
+ax.set_xlabel("Year")
+ax.set_ylabel("Average Sentence Length (words)")
+ax.legend(fontsize=9)
+plt.tight_layout()
+plt.show()
+```
+
+### 4.2 Theological Vocabulary
+
+```{python}
+#| label: fig-vocab
+#| fig-cap: "Theological vocabulary cluster rates per 1,000 words in Catholic encyclicals, 1878–2024. No cluster shows a discontinuous shift at Vatican II."
+
+clusters = ["theol_juridical_rate", "theol_pastoral_rate", "theol_ecumenical_rate", "theol_modern_world_rate"]
+labels   = ["Juridical", "Pastoral", "Ecumenical", "Modern World"]
+colors   = ["#c0392b", "#27ae60", "#2980b9", "#e67e22"]
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 7), sharex=True)
+cat_v = df[df.tradition == "catholic"].sort_values("year")
+for ax, col, label, color in zip(axes.flat, clusters, labels, colors):
+    sub = cat_v[cat_v[col].notna()]
+    ax.scatter(sub.year, sub[col] * 1000, s=10, alpha=0.35, color=color)
+    roll = sub.set_index("year")[col].rolling(5, center=True, min_periods=2).mean() * 1000
+    ax.plot(sub.year, roll.values, lw=2, color=color)
+    ax.axvline(1965, color="#999", lw=1.2, ls="--", alpha=0.7)
+    ax.set_title(label, fontsize=10)
+    ax.set_ylabel("Rate per 1,000 words")
+for ax in axes[1]:
+    ax.set_xlabel("Year")
+fig.suptitle("Catholic Encyclicals: Theological Vocabulary Clusters", fontsize=12)
+plt.tight_layout()
+plt.show()
+```
+
+### 4.3 Difference-in-Differences: Catholic vs. LDS
+
+To isolate the Vatican II effect from secular prose trends, Table 2 reports DiD estimates using annual LDS conference totals as a control. The parallel trends assumption holds to the extent that both traditions experienced similar underlying pressures toward simpler prose in the mid-20th century — a reasonable prior given that both were producing primarily spoken/homiletic text by the postwar period.
+
+```{python}
+did_display = did.copy()
+did_display["sig"] = did_display.did_p.apply(
+    lambda p: "**" if p < 0.05 else ("†" if p < 0.1 else "")
+)
+did_display["outcome"] = did_display.outcome.str.replace("_", " ").str.title()
+did_display = did_display[["outcome", "did_coef", "did_se", "did_p", "r2", "sig"]].round(4)
+did_display.columns = ["Outcome", "DiD Coef", "SE", "p", "R²", ""]
+display(did_display.style.hide(axis="index"))
+```
+
+The results confirm the ITS pattern. Catholic underwent a significant *stylistic* shift at 1965 relative to LDS — simpler sentences, lower grade level, reduced lexical diversity — but none of the theological vocabulary clusters shift significantly. The DiD R² for cosine similarity is excluded here because document-size mismatch between the two corpora (even after LDS aggregation) makes the cosine comparison unreliable for cross-tradition DiD; cosine results are interpreted within-tradition only.
+
+### 4.4 Comparison Across Traditions
+
+```{python}
+#| label: fig-cross-tradition
+#| fig-cap: "ITS level-change estimates at each tradition's rupture event. Catholic's shifts are modest and negative (simpler prose). SBC's Conservative Resurgence (1979) produces large positive shifts in both FK grade (+12.2) and sentence length (+28.7 words) — resolutions became longer and more legalistic. Anglican and Orthodox estimates are imprecise (small n)."
+
+outcomes_plot = ["fk_grade", "avg_sentence_length"]
+its_cross = its[
+    its.outcome.isin(outcomes_plot) &
+    its.level_change.notna() &
+    its.rupture_label.notna()
+].drop_duplicates(subset=["tradition", "outcome", "cutoff"])
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+for ax, outcome in zip(axes, outcomes_plot):
+    sub = its_cross[its_cross.outcome == outcome].copy()
+    colors = [TRADITION_COLORS.get(t, "#555") for t in sub.tradition]
+    y_pos = range(len(sub))
+    ax.barh(list(y_pos), sub.level_change.tolist(),
+            xerr=sub.level_change_se.tolist(),
+            color=colors, alpha=0.8,
+            error_kw={"capsize": 4, "elinewidth": 1.2})
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(sub.tradition.tolist(), fontsize=9)
+    ax.set_title(outcome.replace("_", " ").title(), fontsize=10)
+    ax.set_xlabel("Level change at rupture event (HC3 SE)")
+plt.tight_layout()
+plt.show()
+```
+
+The SBC Conservative Resurgence (1979) produces a large, precisely estimated *increase* in Flesch-Kincaid grade (+12.2, p = 0.003) — resolutions became substantially more formal and legalistic after the conservative takeover. Catholic's Vatican II shift is negative and smaller in magnitude. Anglican and Orthodox estimates are imprecise given small n.
+
+### 4.5 Within-Catholic: Vatican II vs. Earlier Transitions
+
+As a placebo check, we re-run the ITS at 1903 (the Leo XIII–Pius X transition, often cited as a doctrinal watershed via *Lamentabili* and *Pascendi*):
+
+```{python}
+its_1903 = its[
+    (its.tradition == "catholic") &
+    (its.cutoff == 1903) &
+    its.level_change.notna()
+][["outcome", "level_change", "level_change_se", "level_change_p"]].copy()
+its_1903["sig"] = its_1903.level_change_p.apply(lambda p: "**" if p < 0.05 else ("†" if p < 0.1 else ""))
+its_1903["outcome"] = its_1903.outcome.str.replace("_", " ").str.title()
+its_1903.columns = ["Outcome", "Level Δ", "SE", "p", ""]
+display(its_1903.round(4).style.hide(axis="index"))
+```
+
+The 1903 transition shows a *larger* level change in sentence length (+11.9, p < 0.001) and FK grade (+4.0, p < 0.001) than Vatican II does — but in the opposite direction (Pius X's encyclicals are longer and more complex than Leo XIII's). This suggests that the stylistic simplification at Vatican II is not unprecedented; earlier papal transitions show comparable or larger stylistic discontinuities. Vatican II is not an outlier even on the surface features.
+
+### 4.6 USCCB Pastoral Letters: Downstream Coherence
+
+Because national bishops' conferences are themselves a product of Vatican II (*Christus Dominus*, 1965 mandated their formation), the USCCB cannot serve as a pre/post comparison tradition. Instead, it functions as a downstream test: if the council produced institutional rupture, we would expect the newly-created conference's documents to diverge from papal encyclicals in style and theological emphasis — the "rupture radiating outward" hypothesis.
+
+The evidence does not support divergence. Restricting to full pastoral letters (≥ 2,000 words, n = 8, 1968–2007), USCCB documents track papal encyclicals closely on all three primary stylistic metrics.
+
+```{python}
+#| label: fig-usccb
+#| fig-cap: "USCCB pastoral letters (teal diamonds) track Catholic encyclicals (red) closely on all three post-Vatican II stylistic metrics. No divergence is visible."
+
+fig, axes = plt.subplots(1, 3, figsize=(13, 4.5))
+metrics = ["fk_grade", "avg_sentence_length", "cosine_sim_to_prev"]
+ylabels = ["Flesch-Kincaid Grade", "Avg Sentence Length (words)", "Cosine Sim to Predecessor"]
+
+def rolling_mean(series_x, series_y, window=5):
+    tmp = pd.DataFrame({"x": series_x, "y": series_y}).sort_values("x")
+    return tmp["x"], tmp["y"].rolling(window, center=True, min_periods=2).mean()
+
+cat_post = df[(df.tradition == "catholic") & (df.year >= 1965)].sort_values("year")
+usccb_pl = df[(df.tradition == "usccb") & (df.year >= 1968) & (df.word_count >= 2000)].sort_values("year")
+
+for ax, metric, ylabel in zip(axes, metrics, ylabels):
+    cat_v = cat_post[cat_post[metric].notna()]
+    if not cat_v.empty:
+        rx, ry = rolling_mean(cat_v.year, cat_v[metric], window=5)
+        ax.plot(rx, ry, lw=2.5, color=TRADITION_COLORS["catholic"], label="Catholic encyclicals")
+        ax.scatter(cat_v.year, cat_v[metric], s=8, alpha=0.2, color=TRADITION_COLORS["catholic"])
+    usccb_v = usccb_pl[usccb_pl[metric].notna()]
+    if not usccb_v.empty:
+        ax.scatter(usccb_v.year, usccb_v[metric], s=60, zorder=5,
+                   color=TRADITION_COLORS["usccb"], marker="D", label="USCCB pastoral letters")
+        ax.plot(usccb_v.year, usccb_v[metric], lw=1.5, ls="--", color=TRADITION_COLORS["usccb"])
+    ax.axvline(1965, color="#999", lw=1.2, ls="--", alpha=0.7)
+    ax.set_xlabel("Year")
+    ax.set_ylabel(ylabel)
+    ax.legend(fontsize=8)
+
+fig.suptitle("Post-Vatican II: Catholic Encyclicals vs. USCCB Pastoral Letters", fontsize=11)
+plt.tight_layout()
+plt.show()
+```
+
+Flesch-Kincaid grades for USCCB letters (range: 12.7–15.4) overlap almost entirely with the encyclical distribution for the same period. Sentence length in both corpora declines gradually across the 1970s–2000s. The cosine similarity panel is noisier — expected given that pastoral letters span diverse topics (peace, economics, environment, race) with no requirement of thematic continuity — but shows no systematic divergence from the encyclical baseline. Rome and the US bishops' conference are writing in parallel registers post-VII.
+
+## V. Discussion
+
+The results support a nuanced reading of the continuity-rupture debate. On surface features — sentence length, reading complexity, register — Vatican II coincides with a real and statistically detectable shift. Encyclicals after 1965 are shorter, simpler, and more accessible. This is consistent with the council's explicit pastoral orientation and the broader movement toward vernacular liturgy and accessible communication.
+
+But the features that would most directly support the rupture narrative — theological vocabulary, intertextual coherence — move in the wrong direction. The four doctrinal vocabulary clusters (juridical, pastoral, ecumenical, modern world) show no discontinuous shift at 1965. And cosine similarity to the preceding encyclical *increases* after Vatican II, meaning the corpus becomes more internally consistent, not less. Post-conciliar popes write in ways that are more like each other than pre-conciliar popes were.
+
+The comparison to the SBC is instructive. The Conservative Resurgence produces a sharp, precisely estimated rightward shift in doctrinal formality — FK grade jumps 12 points, resolutions become markedly more legalistic. That is what a genuine institutional rupture looks like in the textual record. Vatican II does not look like that.
+
+**Limitations.** The cosine similarity measure is sensitive to document length and corpus composition; cross-tradition comparisons on this metric are unreliable. The Orthodox corpus is small and partly based on paraphrased reconstructions rather than primary translations. The SBC resolution corpus conflates very short documents (median 188 words) where readability metrics are unreliable. A richer analysis would incorporate Latin-language Vatican II documents directly and match document type more carefully across traditions.
+
+## VI. Conclusion
+
+Across 1,900 documents and five Christian traditions, the textual evidence does not support the strong rupture claim. Catholic documents simplify stylistically at Vatican II, but theological vocabulary is stable and intertextual coherence *increases*. The SBC Conservative Resurgence — a genuine institutional rupture by most historical accounts — produces larger and more directionally consistent discontinuities in the textual record than Vatican II does. The hermeneutic of continuity, on the available textual evidence, is closer to the mark.
+
+---
+
+*Data and replication code available at [GitHub repository]. Corpus scrapers, feature extraction, and model scripts are in `scripts/`. All models use HC3 heteroskedasticity-robust standard errors.*
