@@ -9,3 +9,6 @@ matplotlib
 seaborn
 bertopic
 sentence-transformers
+fastapi
+uvicorn[standard]
+anthropic
