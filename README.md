@@ -5,10 +5,13 @@ in Catholic teaching, tested against a comparative corpus of ~1,900
 documents across five Christian traditions (Catholic, LDS, Southern
 Baptist, Anglican, Orthodox) spanning 1845–2026.
 
-- **Paper:** [index.qmd](index.qmd) (rendered site: `docs/index.html`)
-- **Chat with the corpus:** [rag/](rag/) — a retrieval-augmented chat
-  interface over the same primary sources, so you can query the documents
-  directly instead of only reading the paper's aggregate findings
+- **Paper:** [index.qmd](index.qmd) — live at
+  [bleonardi.github.io/papal-continuity-analysis](https://bleonardi.github.io/papal-continuity-analysis/)
+- **Chat with the corpus:** [rag-chat.qmd](rag-chat.qmd) — live at
+  [bleonardi.github.io/papal-continuity-analysis/rag-chat.html](https://bleonardi.github.io/papal-continuity-analysis/rag-chat.html),
+  a retrieval-augmented chat interface over the same primary sources, so you
+  can query the documents directly instead of only reading the paper's
+  aggregate findings. See [rag/](rag/) for the local (non-static) version.
 
 ## Repo layout
 
@@ -19,7 +22,8 @@ Baptist, Anglican, Orthodox) spanning 1845–2026.
 | `data/raw/` | Raw scraped text (gitignored — regenerate via `scripts/scrape_*.py`) |
 | `data/rag_index/` | Precomputed embeddings for the RAG chat demo (committed) |
 | `analysis/` | Model outputs and figures |
-| `rag/` | FastAPI + local-embedding RAG chat app |
+| `rag/` | FastAPI + local-embedding RAG chat app, plus the Cloudflare Worker and corpus behind the static version |
+| `rag-chat.qmd` | The static, GitHub Pages-hosted chat demo |
 
 ## Setup
 

@@ -9,6 +9,18 @@ actual documents, not the model's general knowledge.
 This turns the existing text-as-data corpus into something you can query
 directly, instead of only reading the paper's aggregate findings.
 
+There are two versions of this demo:
+
+- **Live, on GitHub Pages** — [rag-chat.qmd](../rag-chat.qmd) (rendered to
+  `bleonardi.github.io/papal-continuity-analysis/rag-chat.html`). Fully
+  static: retrieval runs in the browser with MiniSearch, and the completion
+  call goes through a small Cloudflare Worker
+  ([cloudflare-worker/](cloudflare-worker/)) that holds the API key. No
+  server to run, no setup for a visitor.
+- **Local FastAPI app** (this directory) — semantic (embedding-based)
+  retrieval instead of lexical search, run locally or in Docker. Better
+  retrieval quality, but needs a Python process running.
+
 ## Architecture
 
 1. **`build_index.py`** — chunks each document (~1000 chars, 150 overlap),
@@ -21,7 +33,10 @@ directly, instead of only reading the paper's aggregate findings.
    chunks, sends them to Claude as `<excerpt>`-tagged context with a system
    prompt that requires citing every claim by tradition and year, and
    returns the answer plus the source excerpts.
-4. **`static/index.html`** — a single-page chat UI with no build step.
+4. **`static/index.html`** — a single-page chat UI for the local FastAPI app, no build step.
+5. **`build_web_corpus.py`** — builds the leaner, unchunked, no-embeddings
+   corpus (`rag/web/corpus.json`) that the GitHub Pages version indexes
+   client-side.
 
 LDS conference reports and their aggregated variant are excluded from the
 index (they dwarf the other five traditions combined in raw volume) so the

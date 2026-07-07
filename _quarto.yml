@@ -1,6 +1,8 @@
 project:
   type: website
   output-dir: docs
+  resources:
+    - rag/web/corpus.json
 
 website:
   title: "Papal Continuity Analysis"
@@ -8,6 +10,8 @@ website:
     left:
       - href: index.qmd
         text: Analysis
+      - href: rag-chat.qmd
+        text: Chat with the Corpus
 
 format:
   html:
