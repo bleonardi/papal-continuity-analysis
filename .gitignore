@@ -13,3 +13,9 @@ data/*.html
 
 /.quarto/
 **/*.quarto_ipynb
+
+# rag-chat.qmd is a Shiny doc rendered directly (not part of docs/) —
+# local `quarto render rag-chat.qmd` / `quarto serve` output
+/rag-chat.html
+/rag-chat_files/
+/rag-chat.knit.md

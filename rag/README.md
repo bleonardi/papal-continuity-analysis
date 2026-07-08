@@ -11,39 +11,64 @@ directly, instead of only reading the paper's aggregate findings.
 
 There are two versions of this demo:
 
-- **Live, on GitHub Pages** — [rag-chat.qmd](../rag-chat.qmd) (rendered to
-  `bleonardi.github.io/papal-continuity-analysis/rag-chat.html`). Fully
-  static: retrieval runs in the browser with MiniSearch, and the completion
-  call goes through a small Cloudflare Worker
-  ([cloudflare-worker/](cloudflare-worker/)) that holds the API key. No
-  server to run, no setup for a visitor.
+- **Live Shiny doc** — [rag-chat.qmd](../rag-chat.qmd), built with
+  [shinychat](https://posit-dev.github.io/shinychat/) and
+  [ellmer](https://ellmer.tidyverse.org/). Claude retrieves for itself via a
+  `search_corpus` tool call rather than the app pre-retrieving before every
+  turn. This is a live R process — it can't be static HTML, so it's deployed
+  separately from the rest of the site (see Deploy, below), not into
+  `docs/`.
 - **Local FastAPI app** (this directory) — semantic (embedding-based)
   retrieval instead of lexical search, run locally or in Docker. Better
-  retrieval quality, but needs a Python process running.
+  retrieval quality, but needs a Python process running, and isn't wired
+  into the Quarto site at all.
 
-## Architecture
+## Architecture (Shiny doc)
 
-1. **`build_index.py`** — chunks each document (~1000 chars, 150 overlap),
-   embeds every chunk locally with `sentence-transformers`
-   (`all-MiniLM-L6-v2`, no API calls), and writes a flat numpy index to
-   `data/rag_index/`.
-2. **`retrieval.py`** — loads that index and does cosine-similarity search
-   at query time, optionally filtered to a single tradition.
-3. **`app.py`** — a FastAPI app: embeds the question, retrieves the top-k
-   chunks, sends them to Claude as `<excerpt>`-tagged context with a system
-   prompt that requires citing every claim by tradition and year, and
-   returns the answer plus the source excerpts.
-4. **`static/index.html`** — a single-page chat UI for the local FastAPI app, no build step.
-5. **`build_web_corpus.py`** — builds the leaner, unchunked, no-embeddings
-   corpus (`rag/web/corpus.json`) that the GitHub Pages version indexes
-   client-side.
+`rag-chat.qmd` is a single self-contained Quarto document:
 
-LDS conference reports and their aggregated variant are excluded from the
-index (they dwarf the other five traditions combined in raw volume) so the
-index stays small enough to commit to git and load in the container
-`pdf-ocr-api`-style, with no separate data-download step.
+- **`context: setup` chunk** — loads `rag/corpus.json` (1,474 documents, no
+  embeddings) and defines `search_corpus(query, tradition)`, a plain
+  keyword-frequency scorer with basic stopword filtering. No model download,
+  no vector math.
+- **UI chunk** — `shinychat::chat_ui()`.
+- **`context: server` chunk** — an `ellmer::chat_anthropic()` client with
+  `search_corpus` registered as a tool, wired to the chat UI via
+  `chat_append()` + `stream_async()`. Claude decides when to call the tool;
+  the system prompt requires it to before answering, and to cite every claim
+  by tradition and year.
 
-## Run it
+`rag/build_corpus.py` builds `rag/corpus.json` from the same manifests as
+the FastAPI app's index (LDS excluded — see below).
+
+## Deploy the Shiny doc
+
+```r
+install.packages(c("shiny", "bslib", "shinychat", "ellmer", "jsonlite", "rsconnect"))
+
+# One-time: point rsconnect at your shinyapps.io account
+# (Account → Tokens → Show, then paste the rsconnect::setAccountInfo(...) call it gives you)
+
+Sys.setenv(ANTHROPIC_API_KEY = "sk-ant-...")  # or set it in .Renviron
+rsconnect::deployDoc("rag-chat.qmd", appName = "papal-rag-chat")
+```
+
+The deployed app needs `ANTHROPIC_API_KEY` available in its environment —
+set it as an environment variable on the shinyapps.io app (dashboard →
+your app → Settings → Vars), not just locally; `deployDoc()` does not
+upload your local environment variables.
+
+If the resulting URL differs from
+`https://bleonardi.shinyapps.io/papal-rag-chat/`, update the navbar link in
+[`_quarto.yml`](../_quarto.yml) and re-render the site.
+
+## Run it locally
+
+```r
+quarto::quarto_serve("rag-chat.qmd")
+```
+
+## Local FastAPI app (alternate version)
 
 ```bash
 pip install -r ../requirements.txt
@@ -58,8 +83,6 @@ uvicorn rag.app:app --reload --app-dir ..
 
 Then open http://localhost:8000.
 
-## API
-
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
@@ -68,3 +91,9 @@ curl -X POST http://localhost:8000/chat \
 
 Optional `"tradition"` field restricts retrieval to one of `catholic`,
 `anglican`, `orthodox`, `sbc`, `usccb`.
+
+---
+
+LDS conference reports and their aggregated variant are excluded from both
+corpora (they dwarf the other five traditions combined in raw volume) so
+each stays small enough to commit to git.

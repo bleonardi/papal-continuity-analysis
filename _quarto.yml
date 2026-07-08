@@ -1,8 +1,12 @@
 project:
   type: website
   output-dir: docs
-  resources:
-    - rag/web/corpus.json
+  # rag-chat.qmd is a Shiny document (server: shiny) — it needs a live R
+  # process and can't be rendered into the static site; it's deployed
+  # separately to shinyapps.io (see rag/README.md).
+  render:
+    - "*.qmd"
+    - "!rag-chat.qmd"
 
 website:
   title: "Papal Continuity Analysis"
@@ -10,7 +14,7 @@ website:
     left:
       - href: index.qmd
         text: Analysis
-      - href: rag-chat.qmd
+      - href: https://bleonardi.shinyapps.io/papal-rag-chat/
         text: Chat with the Corpus
 
 format:
