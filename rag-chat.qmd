@@ -9,7 +9,7 @@ server: shiny
 
 Retrieval-augmented Q&A over the same primary-source corpus used in the
 [continuity/rupture analysis](index.qmd) — Catholic, Anglican, Orthodox,
-Southern Baptist, and USCCB statements from 1845–2026. Claude searches the
+Southern Baptist, and USCCB statements from 1845–2026. Gemini searches the
 1,474-document corpus itself via a tool call before answering, and cites
 every claim by tradition and year.
 
@@ -105,9 +105,9 @@ system_prompt <- paste(
   sep = "\n"
 )
 
-chat_client <- chat_anthropic(
+chat_client <- chat_google_gemini(
   system_prompt = system_prompt,
-  model = "claude-sonnet-5"
+  model = "gemini-2.5-flash"
 )
 
 chat_client$register_tool(tool(

@@ -13,15 +13,16 @@ There are two versions of this demo:
 
 - **Live Shiny doc** — [rag-chat.qmd](../rag-chat.qmd), built with
   [shinychat](https://posit-dev.github.io/shinychat/) and
-  [ellmer](https://ellmer.tidyverse.org/). Claude retrieves for itself via a
-  `search_corpus` tool call rather than the app pre-retrieving before every
-  turn. This is a live R process — it can't be static HTML, so it's deployed
-  separately from the rest of the site (see Deploy, below), not into
-  `docs/`.
-- **Local FastAPI app** (this directory) — semantic (embedding-based)
-  retrieval instead of lexical search, run locally or in Docker. Better
-  retrieval quality, but needs a Python process running, and isn't wired
-  into the Quarto site at all.
+  [ellmer](https://ellmer.tidyverse.org/), backed by Gemini
+  (`ellmer::chat_google_gemini()`, model `gemini-2.5-flash`). Gemini
+  retrieves for itself via a `search_corpus` tool call rather than the app
+  pre-retrieving before every turn. This is a live R process — it can't be
+  static HTML, so it's deployed separately from the rest of the site (see
+  Deploy, below), not into `docs/`.
+- **Local FastAPI app** (this directory) — Claude-backed, semantic
+  (embedding-based) retrieval instead of lexical search, run locally or in
+  Docker. Better retrieval quality, but needs a Python process running, and
+  isn't wired into the Quarto site at all.
 
 ## Architecture (Shiny doc)
 
@@ -32,9 +33,9 @@ There are two versions of this demo:
   keyword-frequency scorer with basic stopword filtering. No model download,
   no vector math.
 - **UI chunk** — `shinychat::chat_ui()`.
-- **`context: server` chunk** — an `ellmer::chat_anthropic()` client with
-  `search_corpus` registered as a tool, wired to the chat UI via
-  `chat_append()` + `stream_async()`. Claude decides when to call the tool;
+- **`context: server` chunk** — an `ellmer::chat_google_gemini()` client
+  with `search_corpus` registered as a tool, wired to the chat UI via
+  `chat_append()` + `stream_async()`. Gemini decides when to call the tool;
   the system prompt requires it to before answering, and to cite every claim
   by tradition and year.
 
@@ -49,14 +50,15 @@ install.packages(c("shiny", "bslib", "shinychat", "ellmer", "jsonlite", "rsconne
 # One-time: point rsconnect at your shinyapps.io account
 # (Account → Tokens → Show, then paste the rsconnect::setAccountInfo(...) call it gives you)
 
-Sys.setenv(ANTHROPIC_API_KEY = "sk-ant-...")  # or set it in .Renviron
+Sys.setenv(GOOGLE_API_KEY = "AIza...")  # or set it in .Renviron; GEMINI_API_KEY also works
 rsconnect::deployDoc("rag-chat.qmd", appName = "papal-rag-chat")
 ```
 
-The deployed app needs `ANTHROPIC_API_KEY` available in its environment —
-set it as an environment variable on the shinyapps.io app (dashboard →
-your app → Settings → Vars), not just locally; `deployDoc()` does not
-upload your local environment variables.
+Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+The deployed app needs `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) available in
+its environment — set it as an environment variable on the shinyapps.io app
+(dashboard → your app → Settings → Vars), not just locally; `deployDoc()`
+does not upload your local environment variables.
 
 If the resulting URL differs from
 `https://bleonardi.shinyapps.io/papal-rag-chat/`, update the navbar link in

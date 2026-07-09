@@ -9,11 +9,12 @@ Baptist, Anglican, Orthodox) spanning 1845–2026.
   [bleonardi.github.io/papal-continuity-analysis](https://bleonardi.github.io/papal-continuity-analysis/)
 - **Chat with the corpus:** [rag-chat.qmd](rag-chat.qmd) — a
   [shinychat](https://posit-dev.github.io/shinychat/)/[ellmer](https://ellmer.tidyverse.org/)
-  app where Claude retrieves from the same primary sources itself via a tool
-  call, instead of you only reading the paper's aggregate findings. Runs as
-  a live R process, deployed separately from the static site — see
-  [rag/README.md](rag/README.md) for the URL and deployment. `rag/` also
-  has a Python/FastAPI version with semantic retrieval.
+  app backed by Gemini, which retrieves from the same primary sources itself
+  via a tool call, instead of you only reading the paper's aggregate
+  findings. Runs as a live R process, deployed separately from the static
+  site — see [rag/README.md](rag/README.md) for the URL and deployment.
+  `rag/` also has a Claude-backed Python/FastAPI version with semantic
+  retrieval.
 
 ## Repo layout
 
