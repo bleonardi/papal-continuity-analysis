@@ -50,18 +50,35 @@ install.packages(c("shiny", "bslib", "shinychat", "ellmer", "jsonlite", "rsconne
 # One-time: point rsconnect at your shinyapps.io account
 # (Account → Tokens → Show, then paste the rsconnect::setAccountInfo(...) call it gives you)
 
-Sys.setenv(GOOGLE_API_KEY = "AIza...")  # or set it in .Renviron; GEMINI_API_KEY also works
-rsconnect::deployDoc("rag-chat.qmd", appName = "papal-rag-chat")
+rsconnect::deployApp(
+  appDir = ".",
+  appPrimaryDoc = "rag-chat.qmd",
+  appFiles = c("rag-chat.qmd", "rag/corpus.json", "assets/custom.scss"),
+  appName = "papal-rag-chat"
+)
 ```
 
-Get a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+**Don't use plain `rsconnect::deployDoc("rag-chat.qmd", ...)`.** For a Shiny
+document it always passes `appFiles = NULL` internally (see
+`rsconnect:::standardizeSingleDocDeployment` — `isShinyRmd()` short-circuits
+to `NULL`, and it can't be overridden without an argument collision), which
+falls back to bundling *every file under the directory containing the
+doc*. Since `rag-chat.qmd` lives at the repo root, that means the whole
+repo — `data/raw/`'s ~5,500 scraped text files included. Calling
+`deployApp()` directly with an explicit `appFiles` is the only way to
+restrict the bundle to what the app actually reads: the qmd itself,
+`rag/corpus.json`, and `assets/custom.scss` (its theme).
+
+Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 The deployed app needs `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) available in
 its environment — set it as an environment variable on the shinyapps.io app
-(dashboard → your app → Settings → Vars), not just locally; `deployDoc()`
-does not upload your local environment variables.
+(dashboard → your app → Settings → Vars), not locally; neither `deployApp()`
+nor `deployDoc()` uploads local environment variables, and shinyapps.io
+(unlike Posit Connect) has no `envVars`/`updateAccountEnvVars()` API path
+for this — the dashboard is the only way.
 
-If the resulting URL differs from
-`https://bleonardi.shinyapps.io/papal-rag-chat/`, update the navbar link in
+Live at: **https://benedictleonardi.shinyapps.io/papal-rag-chat/**. If you
+redeploy under a different account/app name, update the navbar link in
 [`_quarto.yml`](../_quarto.yml) and re-render the site.
 
 ## Run it locally

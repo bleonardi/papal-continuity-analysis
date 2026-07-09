@@ -14,7 +14,7 @@ website:
     left:
       - href: index.qmd
         text: Analysis
-      - href: https://bleonardi.shinyapps.io/papal-rag-chat/
+      - href: https://benedictleonardi.shinyapps.io/papal-rag-chat/
         text: Chat with the Corpus
 
 format:
