@@ -4,6 +4,11 @@ $headings-font-family: "Source Serif 4", Georgia, serif;
 $headings-font-weight: 700;
 $body-color: #1a1a1a;
 $link-color: #2c3e50;
+// Flatly's own $primary (teal, #18bc9c) otherwise leaks into any Bootstrap
+// component keyed off --bs-primary that this file doesn't explicitly
+// restyle — notably shinychat's chat_ui() (rag-chat.qmd), whose send
+// button and user-message tint are both var(--bs-primary, ...).
+$primary: #2c3e50;
 $navbar-bg: rgba(255,255,255,0.85);
 $navbar-fg: #1a1a1a;
 $font-size-base: 0.9375rem;
