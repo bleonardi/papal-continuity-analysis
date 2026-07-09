@@ -3,7 +3,6 @@ title: "Chat with the Corpus"
 format:
   html:
     theme: [flatly, assets/custom.scss]
-    page-layout: custom
 server: shiny
 ---
 
@@ -21,6 +20,8 @@ it's hosted separately from the rest of this static site; see
 
 ```{r}
 #| context: setup
+#| message: false
+#| warning: false
 library(shiny)
 library(bslib)
 library(shinychat)
@@ -80,11 +81,10 @@ search_corpus <- function(query, tradition = "") {
 ```
 
 ```{r}
-bslib::page_fillable(
-  chat_ui(
-    "chat",
-    placeholder = "e.g. How did Catholic and Anglican statements on religious liberty diverge after 1960?"
-  )
+#| echo: false
+chat_ui(
+  "chat",
+  placeholder = "e.g. How did Catholic and Anglican statements on religious liberty diverge after 1960?"
 )
 ```
 
