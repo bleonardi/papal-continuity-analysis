@@ -50,32 +50,53 @@ install.packages(c("shiny", "bslib", "shinychat", "ellmer", "jsonlite", "rsconne
 # One-time: point rsconnect at your shinyapps.io account
 # (Account → Tokens → Show, then paste the rsconnect::setAccountInfo(...) call it gives you)
 
-rsconnect::deployApp(
-  appDir = ".",
-  appPrimaryDoc = "rag-chat.qmd",
-  appFiles = c("rag-chat.qmd", "rag/corpus.json", "assets/custom.scss"),
-  appName = "papal-rag-chat"
-)
+# Get a Gemini key at aistudio.google.com/apikey, then make it available
+# locally however you like (Sys.setenv, .Renviron, keyring, ...):
+Sys.setenv(GOOGLE_API_KEY = "AIza...")
+
+# From the repo root:
+```
+```sh
+Rscript rag/deploy.R
 ```
 
-**Don't use plain `rsconnect::deployDoc("rag-chat.qmd", ...)`.** For a Shiny
-document it always passes `appFiles = NULL` internally (see
-`rsconnect:::standardizeSingleDocDeployment` — `isShinyRmd()` short-circuits
-to `NULL`, and it can't be overridden without an argument collision), which
-falls back to bundling *every file under the directory containing the
-doc*. Since `rag-chat.qmd` lives at the repo root, that means the whole
-repo — `data/raw/`'s ~5,500 scraped text files included. Calling
-`deployApp()` directly with an explicit `appFiles` is the only way to
-restrict the bundle to what the app actually reads: the qmd itself,
-`rag/corpus.json`, and `assets/custom.scss` (its theme).
+`rag/deploy.R` exists because every more-obvious approach fails a
+different way — worth knowing if you're debugging a future deploy:
 
-Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-The deployed app needs `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) available in
-its environment — set it as an environment variable on the shinyapps.io app
-(dashboard → your app → Settings → Vars), not locally; neither `deployApp()`
-nor `deployDoc()` uploads local environment variables, and shinyapps.io
-(unlike Posit Connect) has no `envVars`/`updateAccountEnvVars()` API path
-for this — the dashboard is the only way.
+- **Plain `rsconnect::deployDoc("rag-chat.qmd", ...)`** — for a Shiny
+  document it always passes `appFiles = NULL` internally
+  (`rsconnect:::standardizeSingleDocDeployment` — `isShinyRmd()`
+  short-circuits to `NULL`, and it can't be overridden without an argument
+  collision), which falls back to bundling *every file under the directory
+  containing the doc*. Since `rag-chat.qmd` lives at the repo root, that's
+  the whole repo — `data/raw/`'s ~5,500 scraped text files included.
+- **`deployApp(appFiles = c("rag-chat.qmd", "rag/corpus.json", "assets/custom.scss"))`**
+  fixes the bundle size but silently disables rsconnect's automatic R
+  dependency scan — the server ends up with no packages installed at all
+  and the app fails to start (`Error in enforcePackage(...): The shiny
+  package was not found in the library`).
+- Deploying just those 3 *source* files (even with correct dependencies)
+  also fails: shinyapps.io does **not** pre-render Shiny Quarto content
+  server-side (`Content pre-render disabled for Shiny Quarto content`) —
+  it expects the already-rendered `rag-chat.html` + `rag-chat_files/` in
+  the bundle, and errors with `Prerendered HTML file not found` without
+  them.
+- **`deployApp(envVars = "GOOGLE_API_KEY")`** — the documented way to sync
+  a local env var to the server — errors immediately: *"shinyapps.io does
+  not support setting envVars."* That parameter, and the dashboard "Vars"
+  page some guides mention, are both Posit Connect–only; shinyapps.io has
+  neither. The only thing that actually works is bundling a `.Renviron`
+  file with the deploy — R reads it from the working directory at startup
+  as a base-R feature, independent of platform support.
+
+`rag/deploy.R` copies the 3 source files plus a generated `.Renviron`
+(containing whatever `GOOGLE_API_KEY`/`GEMINI_API_KEY` is set in your local
+session — never written into the git repo) into an isolated temp
+directory, renders there (`quarto render`, producing `rag-chat.html` +
+`rag-chat_files/`), then deploys *that* directory with no `appFiles`
+restriction — since it only contains what's needed, the natural
+(unrestricted) scan gets both the right file list and the right
+dependencies for free.
 
 Live at: **https://benedictleonardi.shinyapps.io/papal-rag-chat/**. If you
 redeploy under a different account/app name, update the navbar link in

@@ -19,3 +19,9 @@ data/*.html
 /rag-chat.html
 /rag-chat_files/
 /rag-chat.knit.md
+/manifest.json
+
+# Never commit secrets — rag/deploy.R writes GOOGLE_API_KEY into a
+# .Renviron in an isolated /tmp staging dir, not here, but this is a
+# safety net in case one's ever created at the repo root for local dev.
+.Renviron
